@@ -1,0 +1,247 @@
+// DAZ Studio version 4.10.0.107 filetype DAZ Script
+
+(function(){
+	
+	//Script that bakes selected properties to the timeline, 
+	//one per frame, linear keys, starts at frame 1 (frame 0 no properies). 
+	//Prints the name of the baked properties to the output.
+
+	//Read more: https://crazyrestosim.wordpress.com/2018/02/27/export-all-ectrl-as-animation-daz3d-to-ue4/
+	
+	//For exporting set corresponding morphs to "ignore"
+	//For example, if you are baking eCTRL ignore them in the export rules,
+	//otherwise daz will export them as morphTargets and not as bone values.
+	//If you don't have morphs to bake (like Height), you can simple disable 
+	//morph export.
+		
+	//PARAMETERS. You can change those values:
+
+	//regex to select properties to bake
+	var sPropertyNameRegexp = new RegExp( "eCTRL" );	
+	
+	//prefix to put in front of the output
+	var sOutputPrefix="pose_";
+	
+	
+	//Don't need to change the rest.
+	
+	/*********************************************************************/
+	// Array<DzProperty> : A function for getting a list of the properties in a group
+	function getGroupProperties( oGroup, bTraverse, bRecurse )
+	{
+		// Declare an array to hold properties
+		var aProperties = [];
+ 
+		// If a group isn't passed in
+		if( !oGroup ){
+			// We're done, return an empty array
+			return aProperties;
+		}
+ 
+		// Get the number of proeprties in the group
+		var nProperties = oGroup.getNumProperties();
+		// Pre-size the properties array
+		aProperties = new Array( nProperties );
+		// Iterate over the properties, setting each element in the array
+		for( var i = 0; i < nProperties; i += 1 ){
+			// Assign the property to the position in the array
+			aProperties[ i ] = oGroup.getProperty( i );
+		}
+ 
+		// If we are recursing
+		if( bRecurse ){
+			// Concatenate the properties array from child groups
+			aProperties = aProperties.concat(
+				getGroupProperties( oGroup.getFirstChild(), true, bRecurse ) );
+		}
+ 
+		// If we are traversing
+		if( bTraverse ){
+			// Concatenate the properties array from sibling groups
+			aProperties = aProperties.concat(
+				getGroupProperties( oGroup.getNextSibling(), bTraverse, bRecurse ) );
+		}
+ 
+		// Return the array of properties
+		return aProperties;
+	};
+ 
+	/*********************************************************************/
+	// Array<DzProperty> : A function for getting the list properties for an element
+	function getElementProperties( oElement, bTraverse, bRecurse )
+	{
+		// Get the property group tree for the element
+		var oPropertyGroupTree = oElement.getPropertyGroups();
+ 
+		// If the application version is 4.9.4.101 or newer and we want all properties
+		if( App.version64 >= 0x0004000900040065 && bTraverse && bRecurse ){
+			// Return the properties for the element
+			return oPropertyGroupTree.getAllProperties();
+		}
+ 
+		// Get the first group in the tree
+		var oPropertyGroup = oPropertyGroupTree.getFirstChild();
+		// Return the properties for the element
+		return getGroupProperties( oPropertyGroup, bTraverse, bRecurse );
+	};
+ 
+	/*********************************************************************/
+	// DzProperty : A function for finding a property associated with an element
+	function findElementProperty( oElement, sProperty, bUseLabel )
+	{
+		// Whether or not to use optimizations; 4.7.1.44 or newer
+		var bUseOptimization = (App.version64 >= 0x000400070001002c);
+ 
+		// Declare a working variable
+		var oProperty;
+ 
+		// If the application version is 4.7.1.44 or newer and we're not using
+		// the label to find, or the application version is 4.9.3.11 or newer
+		if( (bUseOptimization && !bUseLabel) ||
+			App.version64 >= 0x000400090003000b ){
+			// Get the property group tree for the element
+			var oPropertyGroupTree = oElement.getPropertyGroups();
+ 
+			// If we're using the label
+			if( bUseLabel ){
+				// Attempt to find the property
+				oProperty = oPropertyGroupTree.findPropertyByLabel( sProperty );
+			// If we're not using the label
+			} else {
+				// Attempt to find the property
+				oProperty = oPropertyGroupTree.findProperty( sProperty );
+			}
+ 
+			// If we found a property
+			if( oProperty ){
+				// We're done, return it
+				return oProperty;
+			}
+		// Otherwise
+		} else {
+			// Get the properties of the element
+			var aProperties = getElementProperties( oElement, true, true );
+			// Iterate over the properties
+			for( var i = 0; i < aProperties.length; i += 1 ){
+				// Get the 'current' property
+				oProperty = aProperties[i];
+ 
+				// If we're using the label
+				if( bUseLabel ){
+					// If the label of the property is the one we're looking for
+					if( oProperty.getLabel() == sProperty ){
+						// We're done, return it
+						return oProperty;
+					}
+				// If we're not using the label
+				} else {
+					// If the name of the property is the one we're looking for
+					if( oProperty.name == sProperty ){
+						// We're done, return it
+						return oProperty;
+					}				
+				}
+			}
+		}
+ 
+		return null;
+	};
+ 
+	/*********************************************************************/
+	// Array<DzProperty> : A function for getting the list properties for an element
+	function getElementPropertiesInPath( oElement, sPath, bRecurse )
+	{
+		// If the path is empty
+		if( !sPath ){
+			// Return the properties for the element
+			return getElementProperties( oElement, true, bRecurse );
+		}
+ 
+		// Initialize
+		var oGroup = oElement.getPropertyGroups();
+		var sName = "";
+		var nIdx = -1;
+		var sSubPath = sPath;
+ 
+		// While the remaining path is not empty
+		while( oGroup && !sSubPath.isEmpty() ){
+			// Get the index of the first slash
+			nIdx = sSubPath.indexOf( "/" );
+			// If a slash was not found
+			if( nIdx < 0 ){
+				// The group name is the path
+				sName = sSubPath;
+				// Break the loop on the next evaluation
+				sSubPath = "";
+			// If a slash was found
+			} else {
+				// The group name is before the slash
+				sName = sSubPath.left( nIdx );
+				// Get the remaining path
+				sSubPath = sSubPath.right( sSubPath.length - nIdx - 1 );
+			}
+ 
+			// Get the sub group
+			oGroup = oGroup ? oGroup.findChild( sName ) : null;
+		}
+ 
+		// Return the properties for the element
+		return getGroupProperties( oGroup, false, bRecurse );
+	};
+ 
+	/*********************************************************************/
+	// void : A function for reporting information about a property
+	function printPropertyInfo( oProperty )
+	{
+		// Get the owner of the property
+		var oOwner = oProperty.getOwner();
+ 
+		// Provide feedback
+		print( String( "- %1 \"%2\" :: %3 (%4/%5) \"%6\"" )
+			.arg( oOwner.className() )
+			.arg( oOwner.name )
+			.arg( oProperty.className() )
+			.arg( oProperty.getPath() )
+			.arg( oProperty.name )
+			.arg( oProperty.getLabel() )
+		);
+	};
+	
+
+
+
+
+
+ 	var oNode = Scene.getPrimarySelection();
+	var oSkeleton = oNode.getSkeleton();
+	
+	// If nothing is selected
+	if( !oNode ){
+		print("Please select a figure!");
+		// We're done..
+		return;
+	}
+
+	
+	var tpk  = Scene.getTimeStep();
+	var aProperties = getElementProperties( oNode, true, true );		
+	
+	var oProperty;
+	var aValues = [ ];
+	var key = 1;
+	for( var i = 0; i < aProperties.length; i += 1 ){	
+		oProperty = aProperties[ i ];
+		if( sPropertyNameRegexp.test( oProperty.getOwner().name ) || sPropertyNameRegexp.test( oProperty.name )){
+			//print(key+","+oProperty.getOwner().name+","+oProperty.name);
+			print(sOutputPrefix+oProperty.name);
+			oProperty.setValue((key-1)*tpk,0.0,0);
+			oProperty.setValue(key*tpk,1.0,0);
+			oProperty.setValue((key+1)*tpk,0.0,0);
+			key++;
+				
+		}
+	}
+	Scene.setAnimRange( new DzTimeRange( 0 , key*tpk ) );
+	
+	// Finalize the function and invoke
+})();
