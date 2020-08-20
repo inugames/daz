@@ -1,5 +1,5 @@
 // DAZ Studio version 4.10.0.107 filetype DAZ Script
-
+// v1.1 20 Aug 2020
 (function(){
 	
 	//Script that bakes selected properties to the timeline, 
@@ -22,6 +22,9 @@
 	//prefix to put in front of the output
 	var sOutputPrefix="pose_";
 	
+	//if true will use the max value of the propery
+	//if false will use the min value
+	var bMax=true;
 	
 	//Don't need to change the rest.
 	
@@ -197,13 +200,16 @@
 		var oOwner = oProperty.getOwner();
  
 		// Provide feedback
-		print( String( "- %1 \"%2\" :: %3 (%4/%5) \"%6\"" )
+		print( String( "- %1 \"%2\" :: %3 (%4/%5) \"%6\" (%7..%8..%9)" )
 			.arg( oOwner.className() )
 			.arg( oOwner.name )
 			.arg( oProperty.className() )
 			.arg( oProperty.getPath() )
 			.arg( oProperty.name )
 			.arg( oProperty.getLabel() )
+			.arg( oProperty.getMin() )
+			.arg( oProperty.getDefaultValue() )			
+			.arg( oProperty.getMax() )
 		);
 	};
 	
@@ -229,15 +235,35 @@
 	var oProperty;
 	var aValues = [ ];
 	var key = 1;
+	
+	//animate one property per frame
 	for( var i = 0; i < aProperties.length; i += 1 ){	
 		oProperty = aProperties[ i ];
 		if( sPropertyNameRegexp.test( oProperty.getOwner().name ) || sPropertyNameRegexp.test( oProperty.name )){
+			//printPropertyInfo(	oProperty );		
 			//print(key+","+oProperty.getOwner().name+","+oProperty.name);
-			print(sOutputPrefix+oProperty.name);
-			oProperty.setValue((key-1)*tpk,0.0,0);
-			oProperty.setValue(key*tpk,1.0,0);
-			oProperty.setValue((key+1)*tpk,0.0,0);
-			key++;
+			
+			//get prop value to put into anim (min val or max val, depends of bMax param above)
+			var val = bMax?oProperty.getMax():oProperty.getMin();
+
+			//only create keyframe if the value != default value
+			if(val!=oProperty.getDefaultValue())			
+			{	
+				//print property name
+				print(sOutputPrefix+oProperty.name);
+	
+				//create new keyframes
+				//previous key hold default value (usually zero)			
+				oProperty.setValue((key-1)*tpk,oProperty.getDefaultValue(),0);
+				
+				//this key hold max or min value of the property (depends on bMax parameter)
+				oProperty.setValue(key*tpk,bMax?oProperty.getMax():oProperty.getMin(),0);
+				
+				//next key hold default value too (usually zero)			
+				oProperty.setValue((key+1)*tpk,oProperty.getDefaultValue(),0);
+				
+				key++;
+			}
 				
 		}
 	}
