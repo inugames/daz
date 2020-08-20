@@ -6,7 +6,7 @@
 	//one per frame, linear keys, starts at frame 1 (frame 0 no properies). 
 	//Prints the name of the baked properties to the output.
 
-	//Read more: https://crazyrestosim.wordpress.com/2018/02/27/export-all-ectrl-as-animation-daz3d-to-ue4/
+	//Read more: https://inu-games.com/2018/02/27/export-all-ectrl-as-animation-daz3d-to-ue4/
 	
 	//For exporting set corresponding morphs to "ignore"
 	//For example, if you are baking eCTRL ignore them in the export rules,
