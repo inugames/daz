@@ -17,7 +17,7 @@
 	//PARAMETERS. You can change those values:
 
 	//regex to select properties to bake
-	var sPropertyNameRegexp = new RegExp( "eCTRL" );	
+	var PropertiesToBake = "eCTRL"
 	
 	//prefix to put in front of the output
 	var sOutputPrefix="pose_";
@@ -231,43 +231,59 @@
 	
 	var tpk  = Scene.getTimeStep();
 	var aProperties = getElementProperties( oNode, true, true );		
-	
+	var sPropertyNameRegexp = new RegExp(PropertiesToBake);	
 	var oProperty;
 	var aValues = [ ];
 	var key = 1;
-	
+	var j = 0;
 	//animate one property per frame
 	for( var i = 0; i < aProperties.length; i += 1 ){	
 		oProperty = aProperties[ i ];
 		if( sPropertyNameRegexp.test( oProperty.getOwner().name ) || sPropertyNameRegexp.test( oProperty.name )){
 			//printPropertyInfo(	oProperty );		
 			//print(key+","+oProperty.getOwner().name+","+oProperty.name);
-			
-			//get prop value to put into anim (min val or max val, depends of bMax param above)
-			var val = bMax?oProperty.getMax():oProperty.getMin();
+			// Go back 3 keys from current key - set this Property value to 0
+			oProperty.setValue((key-3)*tpk,0.0,0);	
 
-			//only create keyframe if the value != default value
-			if(val!=oProperty.getDefaultValue())			
-			{	
-				//print property name
-				print(sOutputPrefix+oProperty.name);
-	
-				//create new keyframes
-				//previous key hold default value (usually zero)			
-				oProperty.setValue((key-1)*tpk,oProperty.getDefaultValue(),0);
+			// Go back 1 key from current key - set this Property value to 0			
+			oProperty.setValue((key-1)*tpk,0.0,0);
+
+			// At current key set property value to 1 (full)			
+			print(sOutputPrefix+oProperty.name+"+1");
+					
+			oProperty.setValue(key*tpk,1.0,0);
+			// Go forward 1 key from current key - set this Property value to 0		
+			print (sOutputPrefix+PropertiesToBake+"_Empty_"+j);
+			j++						
+			oProperty.setValue((key+1)*tpk,0.0,0);
+
+			// If Pose' minimum value is anything but 0 it probably is a two way pose like Side - Side, Up - Down
+			if( oProperty.getMin() != "0"){ 
+								
+				print(sOutputPrefix+oProperty.name+"-1");
 				
-				//this key hold max or min value of the property (depends on bMax parameter)
-				oProperty.setValue(key*tpk,bMax?oProperty.getMax():oProperty.getMin(),0);
+				// Go forward 2 keys from current key - set this Property value to -1(opposite value)							
+				oProperty.setValue((key+2)*tpk,-1.0,0);
 				
-				//next key hold default value too (usually zero)			
-				oProperty.setValue((key+1)*tpk,oProperty.getDefaultValue(),0);
-				
-				key++;
-			}
+			// Go forward 7 keys from current key - set this Property value to 0				
+				oProperty.setValue((key+7)*tpk,0.0,0);
+				print (sOutputPrefix+PropertiesToBake+"_Empty_"+j)
+				j++
+				key += 2;}
+												
+			// Go forward 3 keys from current key  - set this Property value to 0					
+			oProperty.setValue((key+3)*tpk,0.0,0);
+			
+			// Go forward 5 keys from current key - set this Property value to 0
+			oProperty.setValue((key+5)*tpk,0.0,0);
+			
+			// Move current Key ahead 2 keys						
+			key += 2;
 				
 		}
 	}
+
 	Scene.setAnimRange( new DzTimeRange( 0 , key*tpk ) );
-	
+	Scene.setPlayRange( new DzTimeRange( 0 , (key*tpk)*2 ) );	
 	// Finalize the function and invoke
 })();
