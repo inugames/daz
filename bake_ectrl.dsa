@@ -251,7 +251,10 @@
 			{	
 				//print property name
 				print(sOutputPrefix+oProperty.name);
-	
+
+				// key 0 hold default value (usually zero)
+				oProperty.setValue((0)*tpk,oProperty.getDefaultValue(),0);
+					
 				//create new keyframes
 				//previous key hold default value (usually zero)			
 				oProperty.setValue((key-1)*tpk,oProperty.getDefaultValue(),0);
